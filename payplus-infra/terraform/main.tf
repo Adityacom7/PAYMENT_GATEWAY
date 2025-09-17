@@ -13,9 +13,9 @@ provider "aws" {
   region = "ap-south-1"
 }
 
-# Create a simple VPC
+# Create a simple VPC with UNIQUE CIDR
 resource "aws_vpc" "payplus_vpc" {
-  cidr_block           = "10.0.0.0/16"
+  cidr_block           = "192.168.0.0/16"  # CHANGED TO UNIQUE CIDR
   enable_dns_hostnames = true
 
   tags = {
@@ -26,7 +26,7 @@ resource "aws_vpc" "payplus_vpc" {
 # Create TWO public subnets in DIFFERENT AZs
 resource "aws_subnet" "public_subnet_1" {
   vpc_id                  = aws_vpc.payplus_vpc.id
-  cidr_block              = "10.0.1.0/24"
+  cidr_block              = "192.168.1.0/24"  # CHANGED TO UNIQUE CIDR
   availability_zone       = "ap-south-1a"
   map_public_ip_on_launch = true
 
@@ -37,7 +37,7 @@ resource "aws_subnet" "public_subnet_1" {
 
 resource "aws_subnet" "public_subnet_2" {
   vpc_id                  = aws_vpc.payplus_vpc.id
-  cidr_block              = "10.0.2.0/24"
+  cidr_block              = "192.168.2.0/24"  # CHANGED TO UNIQUE CIDR
   availability_zone       = "ap-south-1b"  # Different AZ!
   map_public_ip_on_launch = true
 
@@ -45,6 +45,7 @@ resource "aws_subnet" "public_subnet_2" {
     Name = "payplus-public-subnet-1b"
   }
 }
+
 
 # Create internet gateway
 resource "aws_internet_gateway" "igw" {
