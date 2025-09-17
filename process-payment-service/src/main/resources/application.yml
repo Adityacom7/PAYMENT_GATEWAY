@@ -1,0 +1,20 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: process-payment-service
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, metrics
+  endpoint:
+    health:
+      show-details: always
+
+# URLs for downstream services (will be configured via K8s Service names later)
+service:
+  authorization: http://authorization-service
+  tokenization: http://tokenization-service
