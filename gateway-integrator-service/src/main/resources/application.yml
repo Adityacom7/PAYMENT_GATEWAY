@@ -1,0 +1,21 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: gateway-integrator-service
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, metrics
+  endpoint:
+    health:
+      show-details: always
+
+# Mock endpoints for external providers (would be real URLs in production)
+providers:
+  visa: https://api.visa.com/sandbox/payments
+  mastercard: https://api.mastercard.com/sandbox/payments
+  upi: https://api.upi.com/sandbox/payments
