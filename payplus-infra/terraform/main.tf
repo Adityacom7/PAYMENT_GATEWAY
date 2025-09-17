@@ -23,15 +23,26 @@ resource "aws_vpc" "payplus_vpc" {
   }
 }
 
-# Create a public subnet
-resource "aws_subnet" "public_subnet" {
+# Create TWO public subnets in DIFFERENT AZs
+resource "aws_subnet" "public_subnet_1" {
   vpc_id                  = aws_vpc.payplus_vpc.id
   cidr_block              = "10.0.1.0/24"
   availability_zone       = "ap-south-1a"
   map_public_ip_on_launch = true
 
   tags = {
-    Name = "payplus-public-subnet"
+    Name = "payplus-public-subnet-1a"
+  }
+}
+
+resource "aws_subnet" "public_subnet_2" {
+  vpc_id                  = aws_vpc.payplus_vpc.id
+  cidr_block              = "10.0.2.0/24"
+  availability_zone       = "ap-south-1b"  # Different AZ!
+  map_public_ip_on_launch = true
+
+  tags = {
+    Name = "payplus-public-subnet-1b"
   }
 }
 
@@ -44,7 +55,7 @@ resource "aws_internet_gateway" "igw" {
   }
 }
 
-# Create route table for public subnet
+# Create route table for public subnets
 resource "aws_route_table" "public_rt" {
   vpc_id = aws_vpc.payplus_vpc.id
 
@@ -58,19 +69,24 @@ resource "aws_route_table" "public_rt" {
   }
 }
 
-# Associate route table with public subnet
-resource "aws_route_table_association" "public_rta" {
-  subnet_id      = aws_subnet.public_subnet.id
+# Associate route table with both public subnets
+resource "aws_route_table_association" "public_rta_1" {
+  subnet_id      = aws_subnet.public_subnet_1.id
   route_table_id = aws_route_table.public_rt.id
 }
 
-# Create EKS cluster
+resource "aws_route_table_association" "public_rta_2" {
+  subnet_id      = aws_subnet.public_subnet_2.id
+  route_table_id = aws_route_table.public_rt.id
+}
+
+# Create EKS cluster (now with TWO subnets)
 resource "aws_eks_cluster" "payplus_cluster" {
   name     = "payplus-cluster"
   role_arn = aws_iam_role.cluster_role.arn
 
   vpc_config {
-    subnet_ids = [aws_subnet.public_subnet.id]
+    subnet_ids = [aws_subnet.public_subnet_1.id, aws_subnet.public_subnet_2.id] # Both subnets!
   }
 
   depends_on = [
@@ -102,15 +118,15 @@ resource "aws_iam_role_policy_attachment" "cluster_AmazonEKSClusterPolicy" {
   role       = aws_iam_role.cluster_role.name
 }
 
-# Create managed node group
+# Create managed node group (now with TWO subnets)
 resource "aws_eks_node_group" "payplus_nodes" {
   cluster_name    = aws_eks_cluster.payplus_cluster.name
   node_group_name = "payplus-node-group"
   node_role_arn   = aws_iam_role.node_role.arn
-  subnet_ids      = [aws_subnet.public_subnet.id]
+  subnet_ids      = [aws_subnet.public_subnet_1.id, aws_subnet.public_subnet_2.id] # Both subnets!
 
   scaling_config {
-    desired_size = 2
+    desired_size = 2  # This will create 1 node in each AZ!
     max_size     = 3
     min_size     = 1
   }
