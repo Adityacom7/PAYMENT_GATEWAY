@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tokenization-service
+  namespace: payplus-production
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: tokenization-service
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: tokenization-service
+    spec:
+      containers:
+      - name: tokenization-service
+        image: 975050277554.dkr.ecr.ap-south-1.amazonaws.com/payplus/tokenization-service:1.0 # WILL CHANGE AFTER PUSH
+        ports:
+        - containerPort: 8080
+        livenessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        resources:
+          requests:
+            cpu: "250m"
+            memory: "512Mi"
+          limits:
+            cpu: "500m"
+            memory: "768Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tokenization-service
+  namespace: payplus-production
+spec:
+  selector:
+    app: tokenization-service
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+  type: ClusterIP
