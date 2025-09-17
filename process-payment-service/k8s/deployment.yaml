@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: process-payment-service
+  namespace: payplus-production
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: process-payment-service
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: process-payment-service
+    spec:
+      containers:
+      - name: process-payment-service
+        image: 975050277554.dkr.ecr.ap-south-1.amazonaws.com/payplus/process-payment-service:1.0
+        ports:
+        - containerPort: 8080
+        env:
+        - name: SERVICE_AUTHORIZATION
+          value: "http://authorization-service" # K8s Service name for discovery
+        - name: SERVICE_TOKENIZATION
+          value: "http://tokenization-service" # K8s Service name for discovery
+        livenessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8080
+          initialDelaySeconds: 45 # Longer delay for the orchestrator service
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        resources:
+          requests:
+            cpu: "500m"    # Higher CPU requested as it's the orchestrator
+            memory: "512Mi"
+          limits:
+            cpu: "1000m"
+            memory: "1024Mi" # 1Gi limit
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: process-payment-service
+  namespace: payplus-production
+spec:
+  selector:
+    app: process-payment-service
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+  type: ClusterIP

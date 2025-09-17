@@ -105,7 +105,7 @@ public class PaymentController {
     public static class TokenRequest {
         private String sensitiveData;
         // getter, setter
-        public TokenRequest() {}  // no-args constructor (needed for serialization/deserialization)
+       // no-args constructor (needed for serialization/deserialization)
 
     public TokenRequest(String sensitiveData) {
         this.sensitiveData = sensitiveData;
