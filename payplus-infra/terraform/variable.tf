@@ -63,4 +63,3 @@ variable "min_size" {
   type        = number
   default     = 1
 }
-EOF
