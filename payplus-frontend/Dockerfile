@@ -3,7 +3,7 @@ FROM node:16-alpine as build
 
 WORKDIR /app
 
-# Copy package files
+# Copy package files okay
 COPY package*.json ./
 
 # Install dependencies
