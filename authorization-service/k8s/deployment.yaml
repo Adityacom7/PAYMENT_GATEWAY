@@ -1,0 +1,140 @@
+# ~/PAYMENT_GATEWAY/authorization-service/k8s/deployment.yaml
+
+# =============================================
+# DEPLOYMENT - Defines how to run your application
+# =============================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: authorization-service           # Name of this deployment
+  namespace: payplus-production         # Kubernetes namespace (like a folder)
+  labels:
+    app: authorization-service          # Label for selecting this deployment
+spec:
+  replicas: 2  # Number of identical pod copies to run (for high availability)
+  
+  # Selector tells the deployment which pods it manages
+  selector:
+    matchLabels:
+      app: authorization-service        # Matches the label in the pod template below
+  
+  # Deployment strategy for updates (zero-downtime deployments)
+  strategy:
+    type: RollingUpdate                 # Gradually replace old pods with new ones
+    rollingUpdate:
+      maxUnavailable: 0                 # Don't take any pods down during update
+      maxSurge: 1                       # Allow one extra pod during update
+  
+  # Template for creating the actual pods
+  template:
+    metadata:
+      labels:
+        app: authorization-service      # This label must match the selector above
+    spec:
+      containers:
+      - name: authorization-service     # Name of the container inside the pod
+        # 🔑 MOST IMPORTANT: Your Docker image from ECR
+        image: 975050277554.dkr.ecr.ap-south-1.amazonaws.com/payplus/authorization-service:1.0
+        
+        # Ports the container exposes
+        ports:
+        - containerPort: 8080           # Spring Boot app runs on port 8080
+          name: http                    # Name this port "http" for reference
+        
+        # =============================================
+        # HEALTH CHECKS - Critical for Kubernetes
+        # =============================================
+        
+        # Liveness Probe: Is the application running?
+        # If this fails, Kubernetes will RESTART the pod
+        livenessProbe:
+          httpGet:                      # Check by making HTTP request
+            path: /actuator/health      # Spring Boot Actuator health endpoint
+            port: 8080                  # Port to check
+          initialDelaySeconds: 30       # Wait 30s after startup before first check
+          periodSeconds: 10             # Check every 10 seconds
+          failureThreshold: 3           # After 3 consecutive failures, restart pod
+        
+        # Readiness Probe: Is the application ready to receive traffic?
+        # If this fails, Kubernetes will STOP sending traffic to the pod
+        readinessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8080
+          initialDelaySeconds: 5        # Shorter delay - check readiness sooner
+          periodSeconds: 5              # Check every 5 seconds
+          failureThreshold: 3           # After 3 failures, remove from load balancer
+        
+        # =============================================
+        # RESOURCE MANAGEMENT - Prevents resource starvation
+        # =============================================
+        resources:
+          # REQUESTS: Minimum resources guaranteed to the container
+          requests:
+            cpu: "250m"                 # 250 milliCPU (0.25 CPU core)
+            memory: "512Mi"             # 512 Mebibytes of RAM
+          
+          # LIMITS: Maximum resources the container can use
+          limits:
+            cpu: "500m"                 # 500 milliCPU (0.5 CPU core) max
+            memory: "768Mi"             # 768 Mebibytes of RAM max (will be killed if exceeded)
+        
+        # =============================================
+        # ENVIRONMENT VARIABLES - App configuration
+        # =============================================
+        env:
+        - name: SPRING_PROFILES_ACTIVE
+          value: "production"           # Use production Spring profile
+
+# =============================================
+# SERVICE - Network access to your pods
+# =============================================
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: authorization-service          # DNS name: authorization-service.payplus-production.svc
+  namespace: payplus-production
+  labels:
+    app: authorization-service
+spec:
+  # Selector: Which pods should this service route traffic to?
+  selector:
+    app: authorization-service          # Routes to pods with this label
+  
+  # Port configuration
+  ports:
+    - protocol: TCP
+      port: 80                          # Port the service listens on (inside cluster)
+      targetPort: 8080                  # Port to forward to the pods (your Spring Boot app)
+      name: http                        # Name this port
+  
+  # Service type: ClusterIP = only accessible within the Kubernetes cluster
+  type: ClusterIP
+
+# =============================================
+# WHAT THIS YAML CREATES:
+# =============================================
+# 1. DEPLOYMENT: 
+#    - Manages 2 identical pods running your authorization service
+#    - Handles rolling updates with zero downtime
+#    - Automatically restarts failed containers
+#
+# 2. SERVICE:
+#    - Provides stable DNS name: authorization-service.payplus-production.svc.cluster.local
+#    - Load balances traffic between the 2 pods
+#    - Other services can connect using this DNS name
+#
+# 3. PODS (created by the deployment):
+#    - Each pod runs one container with your Spring Boot app
+#    - Health checks ensure only healthy pods receive traffic
+#    - Resource limits prevent any single service from hogging resources
+#
+# =============================================
+# HOW OTHER SERVICES WILL CONNECT:
+# =============================================
+# process-payment-service will call:
+#   http://authorization-service/api/v1/authorize
+#
+# Because Kubernetes DNS resolves:
+#   "authorization-service" → ClusterIP Service → Pods
